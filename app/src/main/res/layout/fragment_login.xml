@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="20dp"
+    android:background="@drawable/background_green"
+    tools:context=".login.loginin.LoginFragment">
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/ConstraintLayout_login"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:layout_constraintTop_toTopOf="parent">
+        <TextView
+            android:id="@+id/textView_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="登录"
+            android:textColor="@color/black"
+            android:textSize="50sp"
+            android:fontFamily="@font/title_font"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+        <!-- 用户名输入框 -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/tl_username"
+            style="@style/CustomTextInputLayoutStyle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/dp_marginTop_small"
+            app:boxBackgroundMode="outline"
+            app:endIconDrawable="@drawable/icon_clean"
+            app:errorEnabled="true"
+            app:errorTextColor="@color/red"
+            app:hintTextAppearance="@style/MyHintTextStyle"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/textView_title">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/editText_username"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:digits="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-.@"
+                android:drawableStart="@drawable/icon_email"
+                android:drawablePadding="18dp"
+                android:hint="@string/login_account"
+                android:fontFamily="@font/content_font"
+                android:windowSoftInputMode="adjustResize"
+                android:imeOptions="actionNext"
+                android:inputType="textEmailAddress"
+                android:maxLength="25"
+                android:maxLines="1"
+                android:textColor="@color/black"
+                app:errorEnabled="true" />
+        </com.google.android.material.textfield.TextInputLayout>
+        <!-- 密码输入框 -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/tl_password"
+            style="@style/CustomTextInputLayoutStyle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/dp_marginTop_small"
+            app:boxBackgroundMode="outline"
+            app:errorEnabled="true"
+            app:errorTextColor="@color/red"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/tl_username"
+            app:passwordToggleDrawable="@drawable/shape_seeorno">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/editText_password"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:drawableStart="@drawable/icon_password"
+                android:drawablePadding="18dp"
+                android:hint="@string/login_password"
+                android:fontFamily="@font/content_font"
+
+                android:imeOptions="actionNext"
+                android:inputType="textPassword"
+                android:windowSoftInputMode="adjustResize"
+                android:maxLength="25"
+                android:maxLines="1"
+                android:textColor="@color/black"
+                app:errorEnabled="true"
+                app:passwordToggleDrawable="@drawable/shape_seeorno" />
+        </com.google.android.material.textfield.TextInputLayout>
+        <!-- Remember（记住密码）选项，使用CheckBox -->
+        <CheckBox
+            android:id="@+id/checkBox_remember"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/login_remember_password"
+            android:fontFamily="@font/content_font"
+            android:textColor="@color/black"
+            android:layout_marginStart="@dimen/dp_marginTop_big"
+            android:textSize="16dp"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/tl_password" />
+
+        <!-- Forget（忘记密码）选项，使用TextView模拟链接样式 -->
+        <TextView
+            android:id="@+id/textView_forget"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="@dimen/dp_marginTop_big"
+            android:text="注册"
+            android:fontFamily="@font/content_font"
+            android:textColor="@color/dark_green"
+            android:textColorLink="@color/dark_green"
+            android:textSize="16dp"
+            app:layout_constraintBottom_toBottomOf="@+id/checkBox_remember"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="@+id/checkBox_remember" />
+
+        <!-- 登录按钮 -->
+        <Button
+            android:id="@+id/button_login"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/edit_shape"
+            android:text="@string/login_title"
+            android:fontFamily="@font/content_font"
+            android:textColor="@color/black"
+            android:textSize="25dp"
+            android:layout_marginTop="40dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/checkBox_remember" />
+
+        <TextView
+            android:id="@+id/textView_to_register"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/login_forget_to_register_before"
+            android:textColor="@color/dark_green"
+            android:textColorLink="@color/dark_green"
+            android:layout_marginTop="@dimen/dp_marginTop_big"
+            android:textSize="15dp"
+            android:fontFamily="@font/content_font"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/button_login" />
+
+        <LinearLayout
+            android:id="@+id/textView_or"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="16dp"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/textView_to_register" >
+            <View
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="1"
+                android:background="#000000"/>
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text=""
+                android:layout_marginHorizontal="16dp"/>
+            <View
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="1"
+                android:background="#000000"/>
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/textView_loginWithVerificationCode"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="今朝更有湘江月，照出菲菲满碗花"
+            android:textSize="15dp"
+            android:fontFamily="@font/content_font"
+            android:layout_gravity="center_horizontal"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/textView_or"/>
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>
