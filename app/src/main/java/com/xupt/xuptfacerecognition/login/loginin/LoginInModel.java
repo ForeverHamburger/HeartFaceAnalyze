@@ -1,20 +1,47 @@
 package com.xupt.xuptfacerecognition.login.loginin;
 
+
 import android.util.Log;
+
+import androidx.annotation.NonNull;
 
 import com.xupt.xuptfacerecognition.base.NetworkHelper;
 import com.xupt.xuptfacerecognition.login.LoadTasksCallBack;
+import com.xupt.xuptfacerecognition.network.MyDataHandle;
+import com.xupt.xuptfacerecognition.network.MyOkHttpClient;
+import com.xupt.xuptfacerecognition.network.MyRequest;
+import com.xupt.xuptfacerecognition.network.RequestParams;
+import com.xupt.xuptfacerecognition.network.URL;
+
+import java.io.IOException;
+
+import okhttp3.Call;
+import okhttp3.Callback;
+import okhttp3.Request;
+import okhttp3.Response;
 
 public class LoginInModel implements LoginInContract.Model {
-    private final NetworkHelper networkHelper = new NetworkHelper();
     @Override
     public void getLoginInInfo(String phoneoremail, String password, LoadTasksCallBack callBack) {
-        Log.e("TAG", "getLoginInInfo: " );
-        // 创建请求参数对象，添加用户名和密码作为参数
-//        RequestParams params = new RequestParams();
-//        params.put("phoneoremail", phoneoremail);
-//        params.put("password", password);
-//        networkHelper.performPostRequest(URL.LOGIN_LOGIN_URL, params, callBack);
+        MyDataHandle myDataHandle = new MyDataHandle(new Callback() {
+            @Override
+            public void onFailure(@NonNull Call call, @NonNull IOException e) {
+
+            }
+
+            @Override
+            public void onResponse(@NonNull Call call, @NonNull Response response) throws IOException {
+                String result = response.body().string();
+                Log.d("LoginInModel", "onResponse: " + result);
+
+            }
+        });
+        RequestParams params = new RequestParams();
+        params.put("phoneoremail", phoneoremail);
+        params.put("password", password);
+
+        MyOkHttpClient.post(MyRequest.PostRequest(URL.LOGIN_SIGNUP_URL,params),myDataHandle);
+        callBack.onSuccess("");
     }
 
     public static void getSomeDate() {

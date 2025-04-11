@@ -102,7 +102,6 @@ public class LoginFragment extends Fragment implements LoginInContract.View {
             if (!processLogin(phoneoremail, password)) {
                 return;
             }
-            Log.e("onLoginClick", "onViewCreated: ");
             mPresenter.onLoginClick(phoneoremail, password);
         });
         // 账号输入框焦点改变监听
