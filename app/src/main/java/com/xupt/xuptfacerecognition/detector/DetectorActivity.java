@@ -1,200 +1,204 @@
 package com.xupt.xuptfacerecognition.detector;
+
 import android.Manifest;
-import android.animation.TimeInterpolator;
+import android.content.ContentValues;
 import android.content.pm.PackageManager;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.graphics.Canvas;
-import android.graphics.Color;
-import android.graphics.Paint;
-import android.graphics.PointF;
-import android.graphics.drawable.GradientDrawable;
-import android.graphics.drawable.RotateDrawable;
-import android.media.Image;
-import android.media.ImageReader;
-import android.media.MediaRecorder;
+import android.os.Build;
 import android.os.Bundle;
-import android.os.Handler;
+import android.os.Environment;
+import android.provider.MediaStore;
 import android.util.Log;
 import android.view.View;
-import android.view.animation.AccelerateDecelerateInterpolator;
 import android.widget.Button;
-import android.widget.ProgressBar;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.camera.core.Camera;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.ImageAnalysis;
 import androidx.camera.core.ImageCapture;
 import androidx.camera.core.Preview;
+
 import androidx.camera.lifecycle.ProcessCameraProvider;
-import androidx.camera.view.PreviewView;
+import androidx.camera.video.FileOutputOptions;
+import androidx.camera.video.MediaStoreOutputOptions;
+import androidx.camera.video.Quality;
+import androidx.camera.video.QualitySelector;
+import androidx.camera.video.Recorder;
+import androidx.camera.video.Recording;
+import androidx.camera.video.VideoCapture;
+import androidx.camera.video.VideoRecordEvent;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
-import androidx.core.util.Preconditions;
-import androidx.vectordrawable.graphics.drawable.ArgbEvaluator;
+import androidx.core.util.Consumer;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.xupt.xuptfacerecognition.R;
+import com.xupt.xuptfacerecognition.databinding.ActivityDetectorBinding;
 
 import java.io.File;
-import java.io.IOException;
-import java.nio.ByteBuffer;
+import java.text.SimpleDateFormat;
+import java.util.Arrays;
+import java.util.Locale;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-
-import android.animation.ValueAnimator;
-import android.graphics.ImageFormat;
-
-import java.io.ByteArrayOutputStream;
 
 public class DetectorActivity extends AppCompatActivity {
-
-    private static final int CAMERA_PERMISSION_REQUEST_CODE = 1;
-    private PreviewView previewView;
-    private ProgressBar progressBar;
-    private ValueAnimator progressAnimator; // 进度动画
-    private int targetProgress = 0; // 目标进度值
-    private Button detectButton;
-    private TextView resultTextView;
+    private ActivityDetectorBinding viewBinding;
     private ImageCapture imageCapture;
+    private VideoCapture<Recorder> videoCapture;
+    private Recording recording;
     private ExecutorService cameraExecutor;
-    private MediaRecorder mediaRecorder;
-    private File outputFile;
-    private boolean isRecording = false;
-    private static final int RECORDING_DURATION = 30000; // 30 seconds in milliseconds
+    private static final String TAG = "DetectorActivity";
+    private static final String FILENAME_FORMAT = "yyyy-MM-dd-HH-mm-ss-SSS";
+    private static final int REQUEST_CODE_PERMISSIONS = 10;
+    private static final String[] REQUIRED_PERMISSIONS;
+
+    static {
+        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
+            REQUIRED_PERMISSIONS = new String[]{Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO, Manifest.permission.WRITE_EXTERNAL_STORAGE};
+        } else {
+            REQUIRED_PERMISSIONS = new String[]{Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO};
+        }
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_detector);
+        viewBinding = ActivityDetectorBinding.inflate(getLayoutInflater());
+        setContentView(viewBinding.getRoot());
 
-        previewView = findViewById(R.id.preview_view);
-        detectButton = findViewById(R.id.detect_button);
-        resultTextView = findViewById(R.id.result_text_view);
-        progressBar = findViewById(R.id.progress_bar);
-        progressBar.setProgress(0);
-
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
-                != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this,
-                    new String[]{Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO},
-                    CAMERA_PERMISSION_REQUEST_CODE);
-        } else {
+        // Request camera permissions
+        if (allPermissionsGranted()) {
             startCamera();
+        } else {
+            ActivityCompat.requestPermissions(
+                    this, REQUIRED_PERMISSIONS, REQUEST_CODE_PERMISSIONS);
         }
 
-        detectButton.setOnClickListener(new View.OnClickListener() {
+        viewBinding.videoCaptureButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if (!isRecording) {
-                    startRecording();
-                } else {
-                    stopRecording();
-                }
+                captureVideo();
             }
         });
 
         cameraExecutor = Executors.newSingleThreadExecutor();
     }
 
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
-                                           @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == CAMERA_PERMISSION_REQUEST_CODE) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED
-                    && grantResults[1] == PackageManager.PERMISSION_GRANTED) {
-                startCamera();
-            } else {
-                Toast.makeText(this, "相机或录音权限被拒绝", Toast.LENGTH_SHORT).show();
-            }
+    // Implements VideoCapture use case, including start and stop capturing.
+    private void captureVideo() {
+        if (videoCapture == null) return;
+
+        viewBinding.videoCaptureButton.setEnabled(false);
+
+        if (recording != null) {
+            // Stop the current recording session.
+            recording.stop();
+            recording = null;
+            return;
         }
+
+        // create and start a new recording session
+        String name = new SimpleDateFormat(FILENAME_FORMAT, Locale.US)
+                .format(System.currentTimeMillis());
+        ContentValues contentValues = new ContentValues();
+        contentValues.put(MediaStore.MediaColumns.DISPLAY_NAME, name);
+        contentValues.put(MediaStore.MediaColumns.MIME_TYPE, "video/mp4");
+
+        if (Build.VERSION.SDK_INT > Build.VERSION_CODES.P) {
+            contentValues.put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/CameraX-Video");
+        }
+
+        MediaStoreOutputOptions mediaStoreOutputOptions = new MediaStoreOutputOptions
+                .Builder(getContentResolver(), MediaStore.Video.Media.EXTERNAL_CONTENT_URI)
+                .setContentValues(contentValues)
+                .build();
+
+        File outputFile = new File(getExternalFilesDir(null), "test.mp4");
+        FileOutputOptions fileOutputOptions = new FileOutputOptions.Builder(outputFile)
+                .build();
+
+        recording = videoCapture.getOutput()
+                .prepareRecording(this, fileOutputOptions)
+                .start(ContextCompat.getMainExecutor(this), new Consumer<VideoRecordEvent>() {
+                    @Override
+                    public void accept(VideoRecordEvent recordEvent) {
+                        if (recordEvent instanceof VideoRecordEvent.Start) {
+                            viewBinding.videoCaptureButton.setText(getString(R.string.stop_capture));
+                            viewBinding.videoCaptureButton.setEnabled(true);
+                        } else if (recordEvent instanceof VideoRecordEvent.Finalize) {
+                            if (!((VideoRecordEvent.Finalize) recordEvent).hasError()) {
+                                String msg = "Video capture succeeded: " +
+                                        ((VideoRecordEvent.Finalize) recordEvent).getOutputResults().getOutputUri();
+                                Toast.makeText(getBaseContext(), msg, Toast.LENGTH_SHORT)
+                                        .show();
+                                Log.d(TAG, msg);
+                            } else {
+                                if (recording != null) {
+                                    recording.close();
+                                    recording = null;
+                                }
+                                Log.e(TAG, "Video capture ends with error: " +
+                                        ((VideoRecordEvent.Finalize) recordEvent).getError());
+                            }
+                            viewBinding.videoCaptureButton.setText(getString(R.string.start_capture));
+                            viewBinding.videoCaptureButton.setEnabled(true);
+                        }
+                    }
+                });
     }
 
     private void startCamera() {
         ListenableFuture<ProcessCameraProvider> cameraProviderFuture = ProcessCameraProvider.getInstance(this);
 
-        cameraProviderFuture.addListener(() -> {
-            try {
-                ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
+        cameraProviderFuture.addListener(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    // Used to bind the lifecycle of cameras to the lifecycle owner
+                    ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
 
-                Preview preview = new Preview.Builder().build();
-                preview.setSurfaceProvider(previewView.getSurfaceProvider());
+                    // Preview
+                    Preview preview = new Preview.Builder()
+                            .build();
+                    preview.setSurfaceProvider(viewBinding.viewFinder.getSurfaceProvider());
 
-                imageCapture = new ImageCapture.Builder().build();
+                    Recorder recorder = new Recorder.Builder()
+                            .setQualitySelector(QualitySelector.from(Quality.HIGHEST))
+                            .build();
+                    videoCapture = VideoCapture.withOutput(recorder);
 
-                ImageAnalysis imageAnalysis = new ImageAnalysis.Builder()
-                        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                        .build();
+                    // Select back camera as a default
+                    CameraSelector cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA;
 
-                CameraSelector cameraSelector = new CameraSelector.Builder()
-                        .requireLensFacing(CameraSelector.LENS_FACING_FRONT)
-                        .build();
+                    try {
+                        // Unbind use cases before rebinding
+                        cameraProvider.unbindAll();
 
-                cameraProvider.unbindAll();
-                cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageCapture, imageAnalysis);
-
-            } catch (Exception e) {
-                e.printStackTrace();
+                        // Bind use cases to camera
+                        cameraProvider
+                                .bindToLifecycle(DetectorActivity.this, cameraSelector, preview, videoCapture);
+                    } catch (Exception exc) {
+                        Log.e(TAG, "Use case binding failed", exc);
+                    }
+                } catch (ExecutionException | InterruptedException e) {
+                    e.printStackTrace();
+                }
             }
         }, ContextCompat.getMainExecutor(this));
     }
 
-    private void startRecording() {
-        isRecording = true;
-        detectButton.setText("停止录像");
-        progressBar.setProgress(0);
-        targetProgress = 100;
-        startSmoothProgress(100);
-
-        mediaRecorder = new MediaRecorder();
-        mediaRecorder.setVideoSource(MediaRecorder.VideoSource.SURFACE);
-        mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
-        outputFile = new File(getExternalFilesDir(null), "recording.mp4");
-        mediaRecorder.setOutputFile(outputFile.getAbsolutePath());
-        mediaRecorder.setVideoEncodingBitRate(1000000);
-        mediaRecorder.setVideoFrameRate(30);
-        mediaRecorder.setVideoSize(640, 480);
-        mediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
-        try {
-            mediaRecorder.prepare();
-            mediaRecorder.start();
-            new Handler().postDelayed(new Runnable() {
-                @Override
-                public void run() {
-                    if (isRecording) {
-                        stopRecording();
-                    }
-                }
-            }, RECORDING_DURATION);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    private void stopRecording() {
-        isRecording = false;
-        detectButton.setText("开始录像");
-        if (progressAnimator != null && progressAnimator.isRunning()) {
-            progressAnimator.cancel();
-        }
-        progressBar.setProgress(100);
-
-        if (mediaRecorder != null) {
-            try {
-                mediaRecorder.stop();
-                mediaRecorder.reset();
-                mediaRecorder.release();
-                mediaRecorder = null;
-                Toast.makeText(this, "录像已保存到 " + outputFile.getAbsolutePath(), Toast.LENGTH_SHORT).show();
-            } catch (Exception e) {
-                e.printStackTrace();
+    private boolean allPermissionsGranted() {
+        for (String permission : REQUIRED_PERMISSIONS) {
+            if (ContextCompat.checkSelfPermission(
+                    getBaseContext(), permission) != PackageManager.PERMISSION_GRANTED) {
+                return false;
             }
         }
+        return true;
     }
 
     @Override
@@ -203,68 +207,20 @@ public class DetectorActivity extends AppCompatActivity {
         cameraExecutor.shutdown();
     }
 
-    /**
-     * 启动平滑进度动画
-     * @param target 目标进度（0-100）
-     */
-
-    private void startSmoothProgress(int target) {
-        if (progressAnimator != null && progressAnimator.isRunning()) {
-            progressAnimator.cancel(); // 取消正在运行的动画
-        }
-
-        int currentProgress = progressBar.getProgress();
-        progressAnimator = ValueAnimator.ofInt(currentProgress, target);
-        progressAnimator.setDuration(RECORDING_DURATION); // 动画时长30秒
-
-        // 设置插值器
-        TimeInterpolator interpolator = new AccelerateDecelerateInterpolator();
-        progressAnimator.setInterpolator(interpolator);
-
-        progressAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
-            @Override
-            public void onAnimationUpdate(ValueAnimator animation) {
-                int value = (int) animation.getAnimatedValue();
-                progressBar.setProgress(value);
-
-                // 可选：进度条颜色随进度渐变（示例：蓝→绿）
-                float fraction = animation.getAnimatedFraction();
-                int color = evaluate(fraction,
-                        Color.parseColor("#007BFF"), // 初始蓝色
-                        Color.parseColor("#4CAF50")); // 完成绿色
-                updateProgressBarColor(color);
-            }
-        });
-        progressAnimator.start();
-    }
-
-    private int evaluate(float fraction, int startValue, int endValue) {
-        int startA = (startValue >> 24) & 0xff;
-        int startR = (startValue >> 16) & 0xff;
-        int startG = (startValue >> 8) & 0xff;
-        int startB = startValue & 0xff;
-
-        int endA = (endValue >> 24) & 0xff;
-        int endR = (endValue >> 16) & 0xff;
-        int endG = (endValue >> 8) & 0xff;
-        int endB = endValue & 0xff;
-
-        return ((startA + (int) (fraction * (endA - startA))) << 24) |
-                ((startR + (int) (fraction * (endR - startR))) << 16) |
-                ((startG + (int) (fraction * (endG - startG))) << 8) |
-                ((startB + (int) (fraction * (endB - startB))));
-    }
-
-    /**
-     * 更新进度条颜色（需要自定义 ProgressBar 样式）
-     */
-    private void updateProgressBarColor(int color) {
-        RotateDrawable rotateDrawable = (RotateDrawable) progressBar.getProgressDrawable();
-        if (rotateDrawable != null) {
-            GradientDrawable gradientDrawable = (GradientDrawable) rotateDrawable.getDrawable();
-            if (gradientDrawable != null) {
-                gradientDrawable.setStroke(4, color); // 设置外边框颜色
-                gradientDrawable.setColor(color); // 设置进度颜色
+    @Override
+    public void onRequestPermissionsResult(
+            int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQUEST_CODE_PERMISSIONS) {
+            if (allPermissionsGranted()) {
+                startCamera();
+            } else {
+                Toast.makeText(
+                        this,
+                        "Permissions not granted by the user.",
+                        Toast.LENGTH_SHORT
+                ).show();
+                finish();
             }
         }
     }

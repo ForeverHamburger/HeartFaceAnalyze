@@ -1,5 +1,6 @@
 plugins {
     alias(libs.plugins.android.application)
+    alias(libs.plugins.jetbrains.kotlin.android)
 }
 
 android {
@@ -29,10 +30,14 @@ android {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
     }
+    kotlinOptions {
+        jvmTarget = "1.8"
+    }
     buildFeatures {
         viewBinding = true
     }
 }
+val cameraxVersion = "1.1.0-beta01"
 
 dependencies {
     implementation(libs.appcompat)
@@ -42,11 +47,15 @@ dependencies {
 
     implementation("com.github.yannecer:NCalendar:6.0.0")
     implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
-    implementation("androidx.camera:camera-core:1.2.3")
-    implementation("androidx.camera:camera-camera2:1.2.3")
-    implementation("androidx.camera:camera-lifecycle:1.2.3")
-    implementation("androidx.camera:camera-view:1.2.3")
+
     implementation ("com.google.code.gson:gson:2.8.6")
+
+    implementation("androidx.camera:camera-core:$cameraxVersion")
+    implementation("androidx.camera:camera-camera2:$cameraxVersion")
+    implementation("androidx.camera:camera-lifecycle:$cameraxVersion")
+    implementation("androidx.camera:camera-video:$cameraxVersion")
+    implementation("androidx.camera:camera-view:$cameraxVersion")
+    implementation("androidx.camera:camera-extensions:$cameraxVersion")
 
     implementation(libs.navigation.fragment)
     implementation(libs.navigation.ui)

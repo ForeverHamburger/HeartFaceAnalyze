@@ -190,7 +190,12 @@ public class LoginFragment extends Fragment implements LoginInContract.View {
 
     @Override
     public void showError(String error) {
-        Toast.makeText(getActivity(), "登录失败："+error, Toast.LENGTH_SHORT).show();
+        getActivity().runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                Toast.makeText(getActivity(), "登录失败："+error, Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     @Override
@@ -201,9 +206,14 @@ public class LoginFragment extends Fragment implements LoginInContract.View {
 
     @Override
     public void loginSuccess() {
-        Toast.makeText(getActivity(), "Login Success!", Toast.LENGTH_SHORT).show();
-        MMKV mmkv = MMKV.mmkvWithID("Tea's Whisper");
+        getActivity().runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                Toast.makeText(getActivity(), "Login Success!", Toast.LENGTH_SHORT).show();
 
+            }
+        });
+        MMKV mmkv = MMKV.mmkvWithID("Tea's Whisper");
         if (mIsChecked) {
             // 记住密码
             Log.d("test", "onViewCreated: "+333);

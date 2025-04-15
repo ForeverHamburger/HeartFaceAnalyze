@@ -5,7 +5,9 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
+import com.google.gson.Gson;
 import com.xupt.xuptfacerecognition.base.NetworkHelper;
+import com.xupt.xuptfacerecognition.info.ResponseData;
 import com.xupt.xuptfacerecognition.login.LoadTasksCallBack;
 import com.xupt.xuptfacerecognition.network.MyDataHandle;
 import com.xupt.xuptfacerecognition.network.MyOkHttpClient;
@@ -26,7 +28,8 @@ public class LoginInModel implements LoginInContract.Model {
         MyDataHandle myDataHandle = new MyDataHandle(new Callback() {
             @Override
             public void onFailure(@NonNull Call call, @NonNull IOException e) {
-
+                Log.d("TAG", "onFailure: " + "网络请求失败");
+                e.printStackTrace();
             }
 
             @Override
@@ -34,14 +37,22 @@ public class LoginInModel implements LoginInContract.Model {
                 String result = response.body().string();
                 Log.d("LoginInModel", "onResponse: " + result);
 
+                Gson gson = new Gson();
+                ResponseData responseData = gson.fromJson(result, ResponseData.class);
+
+                if (responseData.getMsg().equals("success")) {
+                    callBack.onSuccess(responseData.getData().getToken());
+                } else {
+                    callBack.onFailed(responseData.getMsg());
+                }
+
             }
         });
         RequestParams params = new RequestParams();
-        params.put("phoneoremail", phoneoremail);
+        params.put("email", phoneoremail);
         params.put("password", password);
-
-        MyOkHttpClient.post(MyRequest.PostRequest(URL.LOGIN_SIGNUP_URL,params),myDataHandle);
-        callBack.onSuccess("");
+        Log.d("TAG", "getLoginInInfo: " + "确实走到LoginModel了");
+        MyOkHttpClient.post(MyRequest.PostRequest(URL.LOGIN_LOGIN_URL,params),myDataHandle);
     }
 
     public static void getSomeDate() {

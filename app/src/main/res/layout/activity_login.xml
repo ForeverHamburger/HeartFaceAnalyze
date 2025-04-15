@@ -5,14 +5,14 @@
     android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/pic_bg"
+    android:background="@drawable/bg_pic_blue"
     tools:context=".login.LoginActivity">
 
     <ImageView
         android:id="@+id/imageView_background"
         android:layout_width="wrap_content"
         android:layout_height="0dp"
-        android:src="@drawable/pic_bg"
+        android:src="@drawable/bg_pic_blue"
         android:scaleType="centerCrop"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHeight_percent="0.4"

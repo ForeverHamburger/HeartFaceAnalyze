@@ -2,6 +2,7 @@ package com.xupt.xuptfacerecognition.result;
 
 import android.animation.ObjectAnimator;
 import android.content.Context;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -15,6 +16,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 
 import com.xupt.xuptfacerecognition.R;
+import com.xupt.xuptfacerecognition.base.HeartRateUtils;
 import com.xupt.xuptfacerecognition.info.HeartRate;
 
 import java.util.List;
@@ -39,6 +41,20 @@ public class BillShowAdapter extends RecyclerView.Adapter<BillShowAdapter.BillSh
     @Override
     public void onBindViewHolder(@NonNull BillShowViewHolder holder, int position) {
         HeartRate heartRate = heartRateInfoList.get(position);
+        if (heartRate.getHeartRate() == 0) {
+            holder.detectNumber.setText("检测中...耐心等待");
+        } else {
+            holder.detectNumber.setText(String.valueOf((int)heartRate.getHeartRate()));
+        }
+
+        holder.detectTime.setText(heartRate.getDateTime());
+
+        if (heartRate.getStatus().equals("2")) {
+            holder.status.setText("检测成功");
+        } else {
+            holder.status.setText("检测中...");
+        }
+
         // 添加从右侧滑入的动画
         Animation slideInAnimation = new TranslateAnimation(
                 Animation.RELATIVE_TO_SELF, 1.0f,

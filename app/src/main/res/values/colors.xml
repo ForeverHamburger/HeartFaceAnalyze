@@ -3,9 +3,9 @@
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
     <color name="red">#FF0000</color>
-    <color name="light_green">#BFE1CA</color>
-    <color name="emerald_green">#A5CEBD</color>
-    <color name="dark_green">#608B7A</color>
+    <color name="light_green">#8bd1f9</color>
+    <color name="emerald_green">#A5AFCE</color>
+    <color name="dark_green">#375C89</color>
     <color name="bright_yellow">#FFC530</color>
 
 

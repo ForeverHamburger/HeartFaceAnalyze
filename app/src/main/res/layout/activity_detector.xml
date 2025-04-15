@@ -2,10 +2,11 @@
 <androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/pic_bg"
-    android:padding="16dp">
+    android:id="@+id/main"
+    tools:context=".detector.RecognitionActivity">
 
     <!-- 顶部标题 -->
     <TextView
@@ -13,13 +14,13 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="人脸识别"
+        android:fontFamily="@font/head_font"
         android:textSize="24sp"
         android:textStyle="bold"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
-    <!-- 相机预览框 + 进度条容器（直接作为 ConstraintLayout 子节点） -->
     <FrameLayout
         android:id="@+id/camera_container"
         android:layout_width="300dp"
@@ -38,10 +39,10 @@
             android:background="@drawable/circular_mask">
 
             <androidx.camera.view.PreviewView
-                android:id="@+id/preview_view"
+                android:id="@+id/viewFinder"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:scaleType="centerCrop" />
+                android:layout_height="match_parent" />
+
         </FrameLayout>
 
         <!-- 圆形进度条 -->
@@ -55,27 +56,23 @@
             android:progressDrawable="@drawable/circular_progress_bar" />
     </FrameLayout>
 
-    <!-- 开始识别按钮（约束到 camera_container，而非 camera_preview_frame） -->
     <Button
-        android:id="@+id/detect_button"
+        android:id="@+id/video_capture_button"
         android:layout_width="300dp"
         android:layout_height="50dp"
-        android:text="Next"
+        android:text="@string/start_capture"
         android:textColor="@color/white"
         android:background="@drawable/button_background"
         app:layout_constraintTop_toBottomOf="@id/camera_container"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        android:layout_marginTop="32dp" />
+        android:layout_marginTop="100dp" />
 
-    <!-- 识别结果文本 -->
-    <TextView
-        android:id="@+id/result_text_view"
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/vertical_centerline"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:textSize="18sp"
-        app:layout_constraintTop_toBottomOf="@id/detect_button"
-        app:layout_constraintStart_toStartOf="parent"
-        android:layout_marginTop="16dp" />
+        android:orientation="vertical"
+        app:layout_constraintGuide_percent=".50" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

@@ -60,6 +60,5 @@ public class LoginInPresenter implements LoginInContract.Presenter, LoadTasksCal
         if (mView!=null&&mView.isACtive()) {
             mView.showError(error);
         }
-        System.out.println(error);
     }
 }
