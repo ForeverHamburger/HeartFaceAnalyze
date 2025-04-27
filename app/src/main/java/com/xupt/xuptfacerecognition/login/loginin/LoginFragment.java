@@ -206,6 +206,7 @@ public class LoginFragment extends Fragment implements LoginInContract.View {
 
     @Override
     public void loginSuccess() {
+
         getActivity().runOnUiThread(new Runnable() {
             @Override
             public void run() {

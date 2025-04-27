@@ -1,8 +1,13 @@
 package com.xupt.xuptfacerecognition.detector;
 
 import android.Manifest;
+import android.content.ContentResolver;
 import android.content.ContentValues;
+import android.content.Context;
 import android.content.pm.PackageManager;
+import android.database.Cursor;
+import android.media.MediaMetadataRetriever;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
@@ -35,7 +40,12 @@ import androidx.core.util.Consumer;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.xupt.xuptfacerecognition.R;
+import com.xupt.xuptfacerecognition.base.TokenManager;
 import com.xupt.xuptfacerecognition.databinding.ActivityDetectorBinding;
+
+import org.greenrobot.eventbus.EventBus;
+import org.greenrobot.eventbus.Subscribe;
+import org.greenrobot.eventbus.ThreadMode;
 
 import java.io.File;
 import java.text.SimpleDateFormat;
@@ -45,16 +55,19 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public class DetectorActivity extends AppCompatActivity {
+public class DetectorActivity extends AppCompatActivity implements DetectorContract.DetectorView{
     private ActivityDetectorBinding viewBinding;
     private ImageCapture imageCapture;
     private VideoCapture<Recorder> videoCapture;
     private Recording recording;
     private ExecutorService cameraExecutor;
-    private static final String TAG = "DetectorActivity";
+    private String token = null;
+
+    private static final String TAG = "TAG";
     private static final String FILENAME_FORMAT = "yyyy-MM-dd-HH-mm-ss-SSS";
     private static final int REQUEST_CODE_PERMISSIONS = 10;
     private static final String[] REQUIRED_PERMISSIONS;
+    private DetectorContract.DetectorPresenter mPresenter;
 
     static {
         if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
@@ -65,11 +78,19 @@ public class DetectorActivity extends AppCompatActivity {
     }
 
     @Override
+    protected void onStart() {
+        super.onStart();
+        if (!EventBus.getDefault().isRegistered(this)) {
+            EventBus.getDefault().register(this);
+        }
+    }
+
+    @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         viewBinding = ActivityDetectorBinding.inflate(getLayoutInflater());
         setContentView(viewBinding.getRoot());
-
+        setPresenter(new DetectorPresenter(this,new DetectorModel()));
         // Request camera permissions
         if (allPermissionsGranted()) {
             startCamera();
@@ -88,6 +109,21 @@ public class DetectorActivity extends AppCompatActivity {
         cameraExecutor = Executors.newSingleThreadExecutor();
     }
 
+
+    @Override
+    public void onStop() {
+        super.onStop();
+        // 取消注册
+        if (EventBus.getDefault().isRegistered(this)) {
+            EventBus.getDefault().unregister(this);
+        }
+    }
+
+    @Subscribe(threadMode = ThreadMode.MAIN, sticky = true)
+    public void getToken(TokenManager tokenManager) {
+        token = tokenManager.getToken();
+        Log.d("pic", "getToken: " + token);
+    }
     // Implements VideoCapture use case, including start and stop capturing.
     private void captureVideo() {
         if (videoCapture == null) return;
@@ -105,7 +141,7 @@ public class DetectorActivity extends AppCompatActivity {
         String name = new SimpleDateFormat(FILENAME_FORMAT, Locale.US)
                 .format(System.currentTimeMillis());
         ContentValues contentValues = new ContentValues();
-        contentValues.put(MediaStore.MediaColumns.DISPLAY_NAME, name);
+        contentValues.put(MediaStore.MediaColumns.DISPLAY_NAME, "file");
         contentValues.put(MediaStore.MediaColumns.MIME_TYPE, "video/mp4");
 
         if (Build.VERSION.SDK_INT > Build.VERSION_CODES.P) {
@@ -117,12 +153,10 @@ public class DetectorActivity extends AppCompatActivity {
                 .setContentValues(contentValues)
                 .build();
 
-        File outputFile = new File(getExternalFilesDir(null), "test.mp4");
-        FileOutputOptions fileOutputOptions = new FileOutputOptions.Builder(outputFile)
-                .build();
+
 
         recording = videoCapture.getOutput()
-                .prepareRecording(this, fileOutputOptions)
+                .prepareRecording(this, mediaStoreOutputOptions)
                 .start(ContextCompat.getMainExecutor(this), new Consumer<VideoRecordEvent>() {
                     @Override
                     public void accept(VideoRecordEvent recordEvent) {
@@ -133,9 +167,30 @@ public class DetectorActivity extends AppCompatActivity {
                             if (!((VideoRecordEvent.Finalize) recordEvent).hasError()) {
                                 String msg = "Video capture succeeded: " +
                                         ((VideoRecordEvent.Finalize) recordEvent).getOutputResults().getOutputUri();
-                                Toast.makeText(getBaseContext(), msg, Toast.LENGTH_SHORT)
-                                        .show();
+                                Toast.makeText(getBaseContext(), msg, Toast.LENGTH_SHORT).show();
                                 Log.d(TAG, msg);
+//
+//                                Uri outputUri = ((VideoRecordEvent.Finalize) recordEvent).getOutputResults().getOutputUri();
+//                                File videoFileFromUriQAndAbove = getVideoFileFromUriQAndAbove(getBaseContext(), outputUri);
+
+                                // 获取视频文件的Uri
+                                Uri outputUri = ((VideoRecordEvent.Finalize) recordEvent).getOutputResults().getOutputUri();
+                                // 将Uri转换为File对象
+                                File videoFile = getVideoFileFromUri(outputUri);
+
+                                // 检查视频时长
+                                long duration = getVideoDuration(videoFile);
+                                Toast.makeText(DetectorActivity.this, "视频时长" + duration, Toast.LENGTH_SHORT).show();
+                                if (duration >= 0) { // 25 秒 = 25000 毫秒
+                                    // 打印文件大小
+                                    float fileSizeInMb = videoFile.length() / (1024f * 1024f);
+                                    Log.d(TAG, "Video file size: " + String.format("%.2f", fileSizeInMb) + " MB");
+                                    // 调用 Presenter 层方法
+                                    if (mPresenter != null && token != null) {
+                                        Log.d(TAG, "accept: " + "开始发送");
+                                        mPresenter.sendVideoInfo(videoFile, token);
+                                    }
+                                }
                             } else {
                                 if (recording != null) {
                                     recording.close();
@@ -149,6 +204,63 @@ public class DetectorActivity extends AppCompatActivity {
                         }
                     }
                 });
+    }
+
+
+    private File getVideoFileFromUri(Uri uri) {
+        ContentResolver contentResolver = getContentResolver();
+        String[] projection = {MediaStore.Video.Media.DATA};
+        Cursor cursor = contentResolver.query(uri, projection, null, null, null);
+        if (cursor != null) {
+            int columnIndex = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DATA);
+            cursor.moveToFirst();
+            String filePath = cursor.getString(columnIndex);
+            cursor.close();
+            return new File(filePath);
+        }
+        return null;
+    }
+
+    private static File getVideoFileFromUriQAndAbove(Context context, Uri outputUri) {
+        try {
+            ContentResolver contentResolver = context.getContentResolver();
+            // 获取文件名
+            String[] projection = {MediaStore.Video.Media.DISPLAY_NAME};
+            Cursor cursor = contentResolver.query(outputUri, projection, null, null, null);
+            if (cursor != null && cursor.moveToFirst()) {
+                int columnIndex = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DISPLAY_NAME);
+                String displayName = cursor.getString(columnIndex);
+                cursor.close();
+
+                // 获取内部存储的Movies/CameraX-Video目录
+                File internalMoviesDir = new File(context.getFilesDir(), "Movies/CameraX-Video");
+                if (!internalMoviesDir.exists()) {
+                    if (!internalMoviesDir.mkdirs()) {
+                        // 目录创建失败，处理错误
+                        return null;
+                    }
+                }
+
+                // 构建完整的文件路径
+                File videoFile = new File(internalMoviesDir, displayName);
+                return videoFile;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    private long getVideoDuration(File videoFile) {
+        MediaMetadataRetriever retriever = new MediaMetadataRetriever();
+        try {
+            retriever.setDataSource(videoFile.getAbsolutePath());
+            String durationStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION);
+            return Long.parseLong(durationStr);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return 0;
+        }
     }
 
     private void startCamera() {
@@ -167,7 +279,7 @@ public class DetectorActivity extends AppCompatActivity {
                     preview.setSurfaceProvider(viewBinding.viewFinder.getSurfaceProvider());
 
                     Recorder recorder = new Recorder.Builder()
-                            .setQualitySelector(QualitySelector.from(Quality.HIGHEST))
+                            .setQualitySelector(QualitySelector.from(Quality.LOWEST))
                             .build();
                     videoCapture = VideoCapture.withOutput(recorder);
 
@@ -223,5 +335,30 @@ public class DetectorActivity extends AppCompatActivity {
                 finish();
             }
         }
+    }
+
+    @Override
+    public void showError(String error) {
+
+    }
+
+    @Override
+    public Boolean isACtive() {
+        return null;
+    }
+
+    @Override
+    public void showSuccess(String data) {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                Toast.makeText(DetectorActivity.this, "数据上传成功！", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    @Override
+    public void setPresenter(DetectorContract.DetectorPresenter presenter) {
+        mPresenter = presenter;
     }
 }

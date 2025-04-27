@@ -36,10 +36,15 @@ import com.necer.enumeration.DateChangeBehavior;
 import com.necer.listener.OnCalendarChangedListener;
 import com.xupt.xuptfacerecognition.R;
 import com.xupt.xuptfacerecognition.base.HeartRateUtils;
+import com.xupt.xuptfacerecognition.base.TokenManager;
 import com.xupt.xuptfacerecognition.databinding.ActivityResultBinding;
 import com.xupt.xuptfacerecognition.info.DataParser;
 import com.xupt.xuptfacerecognition.info.HeartRate;
 import com.xupt.xuptfacerecognition.info.MMKVHeartRateStorage;
+
+import org.greenrobot.eventbus.EventBus;
+import org.greenrobot.eventbus.Subscribe;
+import org.greenrobot.eventbus.ThreadMode;
 
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
@@ -66,6 +71,15 @@ public class ResultActivity extends AppCompatActivity implements ResultContract.
     private List<DataParser.DataItem> mDataList;
     private ResultContract.ResultPresenter mPresenter;
     private long selectedDateMillis; // 存储选择的日期的毫秒数
+    private String token = null;
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        if (!EventBus.getDefault().isRegistered(this)) {
+            EventBus.getDefault().register(this);
+        }
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -78,13 +92,27 @@ public class ResultActivity extends AppCompatActivity implements ResultContract.
         rvBill = binding.rvBill;
 
         setPresenter(new ResultPresenter(this, new ResultModel()));
-        mPresenter.getDetectInfo("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiL" +
-                "TE3OTIxMzc0NDMwMDA5NzEyNjQiLCJ1c2VybmFtZSI6InVzZXJuYW1lIiwiZXhwIjoxNzc2MDgzMzQ" +
-                "wLCJpc3MiOiJMQkRLSU5HIn0.NXtnPtVKBC1KC4QcH4PFC7sTY-dnycCxHqiGtQwivn0");
 
         initLineChart();
         initRecyclerView();
         initCalendarListener(); // 初始化日历监听器
+    }
+
+
+    @Override
+    public void onStop() {
+        super.onStop();
+        // 取消注册
+        if (EventBus.getDefault().isRegistered(this)) {
+            EventBus.getDefault().unregister(this);
+        }
+    }
+
+    @Subscribe(threadMode = ThreadMode.MAIN, sticky = true)
+    public void getToken(TokenManager tokenManager) {
+        token = tokenManager.getToken();
+        Log.d("pic", "getToken: " + token);
+        mPresenter.getDetectInfo(token);
     }
 
     private void initRecyclerView() {
@@ -160,21 +188,26 @@ public class ResultActivity extends AppCompatActivity implements ResultContract.
         List<DataParser.DataItem> dataList = dataItemList; // 假设这个方法获取最近的数据
         List<DataParser.DataItem> filteredDataList = DateUtils.filterDataByDate(dataList, selectedDateMillis);
 
-        if (filteredDataList.size() == 0) {
-            binding.tvNull.setVisibility(View.VISIBLE);
-            binding.ivHourglass.setVisibility(View.VISIBLE);
-            binding.tvBillLcName.setVisibility(View.GONE);
-            binding.rvBill.setVisibility(View.GONE);
-            binding.tvBillRvName.setVisibility(View.GONE);
-            binding.lineChart.setVisibility(View.GONE);
-        } else {
-            binding.tvNull.setVisibility(View.GONE);
-            binding.ivHourglass.setVisibility(View.GONE);
-            binding.tvBillLcName.setVisibility(View.VISIBLE);
-            binding.rvBill.setVisibility(View.VISIBLE);
-            binding.tvBillRvName.setVisibility(View.VISIBLE);
-            binding.lineChart.setVisibility(View.VISIBLE);
-        }
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                if (filteredDataList.size() == 0) {
+                    binding.tvNull.setVisibility(View.VISIBLE);
+                    binding.ivHourglass.setVisibility(View.VISIBLE);
+                    binding.tvBillLcName.setVisibility(View.GONE);
+                    binding.rvBill.setVisibility(View.GONE);
+                    binding.tvBillRvName.setVisibility(View.GONE);
+                    binding.lineChart.setVisibility(View.GONE);
+                } else {
+                    binding.tvNull.setVisibility(View.GONE);
+                    binding.ivHourglass.setVisibility(View.GONE);
+                    binding.tvBillLcName.setVisibility(View.VISIBLE);
+                    binding.rvBill.setVisibility(View.VISIBLE);
+                    binding.tvBillRvName.setVisibility(View.VISIBLE);
+                    binding.lineChart.setVisibility(View.VISIBLE);
+                }
+            }
+        });
 
         List<HeartRate> heartRates = new ArrayList<>();
         List<Entry> entries = new ArrayList<>();
@@ -241,7 +274,7 @@ public class ResultActivity extends AppCompatActivity implements ResultContract.
     public void showSuccess(DataParser.Response data) {
         List<DataParser.DataItem> dataList = data.getDataList();
         mDataList = dataList;
-        Log.d("TAG", "showSuccess: " + "获取成功了" + dataList.get(0).getData());
+        Log.d("TAG", "showSuccess: " + "获取了" + dataList.size() + "个数据");
         updateData(dataList); // 这里可以根据需要决定是否直接更新数据，或者先存储数据再根据日历选择更新
     }
 }
