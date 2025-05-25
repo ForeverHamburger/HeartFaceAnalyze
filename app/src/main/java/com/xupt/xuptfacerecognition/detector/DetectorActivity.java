@@ -188,7 +188,7 @@ public class DetectorActivity extends AppCompatActivity implements DetectorContr
                                     // 调用 Presenter 层方法
                                     if (mPresenter != null && token != null) {
                                         Log.d(TAG, "accept: " + "开始发送");
-                                        mPresenter.sendVideoInfo(videoFile, token);
+                                        mPresenter.sendVideoInfo(getBaseContext(), videoFile, token);
                                     }
                                 }
                             } else {

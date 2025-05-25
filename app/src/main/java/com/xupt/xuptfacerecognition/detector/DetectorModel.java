@@ -1,5 +1,6 @@
 package com.xupt.xuptfacerecognition.detector;
 
+import android.content.Context;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -27,10 +28,10 @@ import okhttp3.Response;
 public class DetectorModel implements DetectorContract.DetectorModel {
 
     @Override
-    public void sendDetectVideo(File file, String token, LoadTasksCallBack callBack) {
+    public void sendDetectVideo(Context content, File file, String token, LoadTasksCallBack callBack) {
         Log.d("TAG", "sendDetectVideo: " + token);
         String fileMD5String = FileToMD5.getFileMD5String(file);
-        FileUploader uploader = new FileUploader();
+        FileUploader uploader = new FileUploader(content, fileMD5String);
         uploader.sendDetectVideo(file, token, fileMD5String, callBack);
     }
 

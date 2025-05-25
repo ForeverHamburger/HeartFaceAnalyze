@@ -1,7 +1,7 @@
 package com.xupt.xuptfacerecognition.network;
 
 public class URL {
-    public static final String BASE_URL = "https://192.168.1.57:8080";
+    public static final String BASE_URL = "https://115.190.39.142:8080";
     //注册
     public static final String LOGIN_SIGNUP_URL = BASE_URL +"/api/v1/signup";
     //普通登录

@@ -15,8 +15,8 @@ import okhttp3.Request;
 
 public class MyOkHttpClient {
 
-    // 定义网络请求的超时时间，单位为秒，这里设置为30秒，用于控制连接、读取和写入操作在多长时间内未完成则视为超时。
-    private static final int TIME_OUT = 30;
+    // 定义网络请求的超时时间，单位为秒，这里设置为10秒，用于控制连接、读取和写入操作在多长时间内未完成则视为超时。
+    private static final int TIME_OUT = 5;
     // 静态的OkHttpClient实例，整个应用中通常共享这一个实例来进行网络请求，节省资源并便于统一配置管理。
     private static OkHttpClient mOkHttpClient;
 

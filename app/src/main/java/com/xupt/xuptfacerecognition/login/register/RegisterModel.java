@@ -29,7 +29,7 @@ public class RegisterModel implements RegisterContract.Model {
         MyDataHandle myDataHandle = new MyDataHandle(new Callback() {
             @Override
             public void onFailure(@NonNull Call call, @NonNull IOException e) {
-
+                Log.d("TAG", "onFailure: " + "大失败" + e);
             }
 
             @Override
@@ -41,7 +41,6 @@ public class RegisterModel implements RegisterContract.Model {
         });
 
         MyOkHttpClient.post(MyRequest.PostRequest(URL.LOGIN_SIGNUP_URL,params),myDataHandle);
-        callBack.onSuccess("");
     }
 
     @Override

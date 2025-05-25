@@ -1,10 +1,12 @@
 package com.xupt.xuptfacerecognition.network;
 
 
+import android.content.Context;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
 
+import com.xupt.xuptfacerecognition.base.UploadRecordManager;
 import com.xupt.xuptfacerecognition.login.LoadTasksCallBack;
 
 import java.io.ByteArrayInputStream;
@@ -19,6 +21,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -44,6 +47,7 @@ import okio.BufferedSink;
 public class FileUploader {
     private static final int CHUNK_SIZE = 256 * 1024; // 0.25MB分块大小
     private static final String TAG = "FileUploader";
+    private final UploadRecordManager recordManager;
     private static OkHttpClient client;
     private static final int CONCURRENT_UPLOADS = 3; // 并发上传的分块数量
     private final ExecutorService executorService = Executors.newFixedThreadPool(CONCURRENT_UPLOADS);
@@ -97,11 +101,13 @@ public class FileUploader {
         }
     }
 
-    public FileUploader() {
-
+    public FileUploader(Context context, String fileMD5) {
+        this.recordManager = new UploadRecordManager(context, fileMD5);
     }
 
     public void sendDetectVideo(File file, String token,String fileMD5String, LoadTasksCallBack callBack) {
+        Set<Integer> uploadedChunks = recordManager.getUploadedChunks();
+
         long fileSize = file.length();
         int totalChunks = (int) Math.ceil(fileSize * 1.0 / CHUNK_SIZE);
         CountDownLatch latch = new CountDownLatch(totalChunks);
@@ -109,12 +115,19 @@ public class FileUploader {
 
         for (int i = 0; i < totalChunks; i++) {
             final int chunkIndex = i;
+            if (uploadedChunks.contains(chunkIndex)) {
+                continue;
+            }
             long start = i * CHUNK_SIZE;
             long end = Math.min((i + 1) * CHUNK_SIZE, fileSize);
             Callable<Boolean> task = () -> {
                 try {
-                    Log.d("TAG", "sendDetectVideo: " + token);
-                    return uploadChunk(file, token, start, end, chunkIndex, totalChunks, fileMD5String, callBack);
+                    boolean success = uploadChunk(file, token, start, end,
+                            chunkIndex, totalChunks, fileMD5String, callBack);
+                    if (success) {
+                        recordManager.markChunkCompleted(chunkIndex); // 记录成功分块
+                    }
+                    return success;
                 } finally {
                     latch.countDown();
                 }

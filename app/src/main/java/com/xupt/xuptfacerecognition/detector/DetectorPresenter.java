@@ -1,5 +1,6 @@
 package com.xupt.xuptfacerecognition.detector;
 
+import android.content.Context;
 import android.util.Log;
 
 import com.xupt.xuptfacerecognition.login.LoadTasksCallBack;
@@ -16,8 +17,8 @@ public class DetectorPresenter implements DetectorContract.DetectorPresenter, Lo
     }
 
     @Override
-    public void sendVideoInfo(File file, String token) {
-        model.sendDetectVideo(file, token, this);
+    public void sendVideoInfo(Context context, File file, String token) {
+        model.sendDetectVideo(context, file, token, this);
 //        model.sendVideo(file, token, this);
     }
 

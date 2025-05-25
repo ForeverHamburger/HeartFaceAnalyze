@@ -1,6 +1,8 @@
 package com.xupt.xuptfacerecognition.login.register;
 
 
+import android.util.Log;
+
 import com.xupt.xuptfacerecognition.base.VerificationRequestManager;
 import com.xupt.xuptfacerecognition.login.LoadTasksCallBack;
 
@@ -35,10 +37,11 @@ public class RegisterPresenter implements RegisterContract.Presenter, LoadTasksC
 
     @Override
     public void onRegisterClick(String email, String password, String phone) {
-        if (!VerificationRequestManager.getInstance().isRequestValid(email)) {
-            onFailed("请先获取验证码");
-            return;
-        }
+//        if (!VerificationRequestManager.getInstance().isRequestValid(email)) {
+//            onFailed("请先获取验证码");
+//            return;
+//        }
+        Log.d("RegisterPresenter", "onRegisterClick: " + "走到这一步且没问题");
         mModel.getRegisterInfo(email, password, phone, this);
 
     }
