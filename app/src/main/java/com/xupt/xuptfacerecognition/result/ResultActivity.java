@@ -71,7 +71,7 @@ public class ResultActivity extends AppCompatActivity implements ResultContract.
     private List<DataParser.DataItem> mDataList;
     private ResultContract.ResultPresenter mPresenter;
     private long selectedDateMillis; // 存储选择的日期的毫秒数
-    private String token = null;
+    private String token = "";
 
     @Override
     protected void onStart() {
@@ -92,6 +92,15 @@ public class ResultActivity extends AppCompatActivity implements ResultContract.
         rvBill = binding.rvBill;
 
         setPresenter(new ResultPresenter(this, new ResultModel()));
+
+        binding.ivRefresh.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if (!token.equals("")){
+                    mPresenter.getDetectInfo(token);
+                }
+            }
+        });
 
         initLineChart();
         initRecyclerView();

@@ -11,10 +11,12 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
 import android.provider.MediaStore;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -62,12 +64,38 @@ public class DetectorActivity extends AppCompatActivity implements DetectorContr
     private Recording recording;
     private ExecutorService cameraExecutor;
     private String token = null;
-
+    private CameraSelector currentCamera = CameraSelector.DEFAULT_BACK_CAMERA; // 初始化为后置
     private static final String TAG = "TAG";
     private static final String FILENAME_FORMAT = "yyyy-MM-dd-HH-mm-ss-SSS";
     private static final int REQUEST_CODE_PERMISSIONS = 10;
     private static final String[] REQUIRED_PERMISSIONS;
     private DetectorContract.DetectorPresenter mPresenter;
+    private Handler timerHandler = new Handler();
+    private long startTime = 0;
+    private boolean isRunning = false;
+    private Preview preview;
+
+
+    // 创建计时更新任务
+    private Runnable timerRunnable = new Runnable() {
+        @Override
+        public void run() {
+            long currentTime = System.currentTimeMillis();
+            long elapsedMillis = currentTime - startTime;
+
+            // 格式化时间为 HH:mm:ss.SSS
+            int hours = (int) (elapsedMillis / 3600000);
+            int minutes = (int) (elapsedMillis % 3600000) / 60000;
+            int seconds = (int) (elapsedMillis % 60000) / 1000;
+            int milliseconds = (int) (elapsedMillis % 1000);
+
+            String time = String.format("%02d:%02d:%02d.%03d", hours, minutes, seconds, milliseconds);
+            viewBinding.tvSeconds.setText(time);
+
+            // 每1毫秒更新一次（实际精度取决于系统）
+            timerHandler.postDelayed(this, 1);
+        }
+    };
 
     static {
         if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
@@ -106,7 +134,34 @@ public class DetectorActivity extends AppCompatActivity implements DetectorContr
             }
         });
 
+        viewBinding.ivSwith.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                switchCamera(); // 调用切换摄像头方法
+            }
+        });
+
         cameraExecutor = Executors.newSingleThreadExecutor();
+    }
+
+    private void switchCamera() {
+        // 切换摄像头类型：后置 ↔ 前置
+        currentCamera = (currentCamera == CameraSelector.DEFAULT_BACK_CAMERA)
+                ? CameraSelector.DEFAULT_FRONT_CAMERA
+                : CameraSelector.DEFAULT_BACK_CAMERA;
+        preview = new Preview.Builder()
+                .build();
+        preview.setSurfaceProvider(viewBinding.viewFinder.getSurfaceProvider());
+        // 重新绑定相机（需先解绑当前相机）
+        ProcessCameraProvider.getInstance(this).addListener(() -> {
+            try {
+                ProcessCameraProvider cameraProvider = ProcessCameraProvider.getInstance(DetectorActivity.this).get();
+                cameraProvider.unbindAll(); // 解绑所有用例
+                cameraProvider.bindToLifecycle(DetectorActivity.this, currentCamera, preview, videoCapture); // 重新绑定新摄像头
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }, ContextCompat.getMainExecutor(this));
     }
 
 
@@ -127,6 +182,17 @@ public class DetectorActivity extends AppCompatActivity implements DetectorContr
     // Implements VideoCapture use case, including start and stop capturing.
     private void captureVideo() {
         if (videoCapture == null) return;
+
+        if (!isRunning) {
+            // 开始计时
+            startTime = System.currentTimeMillis();
+            isRunning = true;
+            timerHandler.post(timerRunnable);
+        } else {
+            // 停止计时
+            timerHandler.removeCallbacks(timerRunnable);
+            isRunning = false;
+        }
 
         viewBinding.videoCaptureButton.setEnabled(false);
 
@@ -274,7 +340,7 @@ public class DetectorActivity extends AppCompatActivity implements DetectorContr
                     ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
 
                     // Preview
-                    Preview preview = new Preview.Builder()
+                    preview = new Preview.Builder()
                             .build();
                     preview.setSurfaceProvider(viewBinding.viewFinder.getSurfaceProvider());
 
@@ -284,7 +350,7 @@ public class DetectorActivity extends AppCompatActivity implements DetectorContr
                     videoCapture = VideoCapture.withOutput(recorder);
 
                     // Select back camera as a default
-                    CameraSelector cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA;
+                    CameraSelector cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA;
 
                     try {
                         // Unbind use cases before rebinding
